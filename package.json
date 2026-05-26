@@ -1,0 +1,17 @@
+{
+  "name": "chain-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chain platform monorepo: FastAPI backend + React web admin + UniApp mobile + shared packages",
+  "workspaces": [
+    "chain_web_admin",
+    "chain_uniapp_mobile",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace chain-web-admin run dev",
+    "dev:mobile": "npm --workspace chain-uniapp-mobile run dev:h5",
+    "build:web": "npm --workspace chain-web-admin run build",
+    "build:mobile": "npm --workspace chain-uniapp-mobile run build:h5"
+  }
+}
