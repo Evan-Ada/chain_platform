@@ -1,3 +1,6 @@
+from typing import Optional
+
+from sqlalchemy import text
 from sqlmodel import Session, create_engine, select
 
 from app import crud
@@ -31,3 +34,22 @@ def init_db(session: Session) -> None:
             is_superuser=True,
         )
         user = crud.create_user(session=session, user_create=user_in)
+
+
+def execute_sql(sql: str, params: Optional[dict] = None) -> list[dict] | None:
+    """执行原生 SQL 并返回结果。
+
+    使用 fastapi_sqlalchemy 的 db.session 执行。
+    适用于非 ORM 场景的复杂查询。
+
+    Args:
+        sql: SQL 语句（使用 :param_name 占位）。
+        params: 参数字典。
+
+    Returns:
+        查询类语句返回字典列表；非查询类语句返回 None。
+    """
+    from fastapi_sqlalchemy import db
+
+    rp = db.session.execute(text(sql), params or {})
+    return [dict(r) for r in rp.mappings()] if rp.returns_rows else None

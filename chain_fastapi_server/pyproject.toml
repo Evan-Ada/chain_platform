@@ -21,6 +21,14 @@ dependencies = [
     "pwdlib[argon2,bcrypt]>=0.3.0",
     "motor>=3.5,<4",
     "redis>=5,<6",
+    "loguru",
+    "orjson",
+    "pycryptodome",
+    "cryptography",
+    "requests",
+    "fastapi-sqlalchemy",
+    "openpyxl",
+    "alibabacloud-dysmsapi20170525>=1.0.0",
 ]
 
 [dependency-groups]

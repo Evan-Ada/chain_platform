@@ -72,6 +72,27 @@ class Settings(BaseSettings):
             path=self.POSTGRES_DB,
         )
 
+    # --- AES 加密 ---
+    IS_AESCRYPT: bool = False
+    AES_KEY: str = ""  # 16 / 24 / 32 字节密钥
+
+    # --- 微信通知 ---
+    ENABLE_WECHAT_NOTIFY: bool = False
+    WECHAT_APP_ID: str = ""
+    WECHAT_APP_SECRET: str = ""
+    WECHAT_TEMPLATE_ID: str = ""
+
+    # --- 短信 ---
+    ENABLE_SMS: bool = False
+    SMS_ACCESS_KEY: str = ""
+    SMS_ACCESS_SECRET: str = ""
+    SMS_SIGN_NAME: str = ""
+
+    # --- 请求日志阈值（秒） ---
+    SLOW_REQUEST_THRESHOLD: float = 0.5
+    ERROR_REQUEST_THRESHOLD: float = 1.5
+    LOG_LEVEL: str = "DEBUG"
+
     SMTP_TLS: bool = True
     SMTP_SSL: bool = False
     SMTP_PORT: int = 587
