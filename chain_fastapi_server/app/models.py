@@ -2,7 +2,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 from pydantic import EmailStr
-from sqlalchemy import DateTime, Column
+from sqlalchemy import DateTime, Column, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -348,6 +348,9 @@ class TagBase(SQLModel):
 
 class Tag(TagBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
+    parent_id: int | None = Field(
+        default=None, foreign_key="tag.id", nullable=True, index=True
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),
@@ -357,6 +360,7 @@ class Tag(TagBase, table=True):
 
 class TagPublic(TagBase):
     id: int
+    parent_id: int | None = None
     created_at: datetime | None = None
 
 
@@ -380,6 +384,44 @@ class TagSynonymPublic(TagSynonymBase):
     id: int
     tag_id: int
     created_at: datetime | None = None
+
+
+# ──────────────────────────────────────────────
+# InsightEntry（洞见）
+# ──────────────────────────────────────────────
+
+
+class InsightEntryBase(SQLModel):
+    source_type: str = Field(default="manual_text", max_length=50)
+    raw_text: str = Field(sa_column=Column(Text, nullable=False))
+    ai_interpretation: dict[str, Any] = Field(
+        default={},
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    tags: list[str] = Field(
+        default=[],
+        sa_column=Column(JSONB, nullable=False, server_default="[]"),
+    )
+    status: str = Field(default="pending", max_length=20)
+    error_message: str | None = Field(default=None, max_length=500)
+    parent_id: int | None = Field(default=None, index=True)
+    linked_digest_id: int | None = Field(default=None)
+
+
+class InsightEntry(InsightEntryBase, table=True):
+    __tablename__ = "insight_entry"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", nullable=False, ondelete="CASCADE")
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),
+    )
+    updated_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),
+    )
+    deleted_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
 
 
 # ──────────────────────────────────────────────

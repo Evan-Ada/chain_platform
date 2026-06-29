@@ -17,6 +17,7 @@ router = APIRouter(prefix="/Tag", tags=["Tag"])
 class ListTagM(BaseModel):
     keyword: str | None = None
     category: str | None = None
+    parent_id: int | None = None  # NULL 查一级标签
     page_num: int = 1
     page_size: int = 20
 
@@ -40,6 +41,13 @@ class RemoveSynonymM(BaseModel):
     synonym_id: int
 
 
+class AddTagM(BaseModel):
+    name: str
+    display_name: str
+    category: str | None = None
+    parent_id: int | None = None
+
+
 # ── 路由 ──
 
 
@@ -61,6 +69,14 @@ async def listTags(pm: ListTagM, db: SessionDep, current_user: CurrentUser) -> T
     if pm.category:
         stmt = stmt.where(Tag.category == pm.category)
         count_stmt = select(Tag).where(Tag.category == pm.category)
+
+    if pm.parent_id is not None:
+        stmt = stmt.where(Tag.parent_id == pm.parent_id)
+        count_stmt = select(Tag).where(Tag.parent_id == pm.parent_id)
+    elif pm.parent_id is None and pm.keyword is None and pm.category is None:
+        # 仅在无其他筛选条件时默认查一级标签
+        stmt = stmt.where(Tag.parent_id.is_(None))
+        count_stmt = select(Tag).where(Tag.parent_id.is_(None))
 
     total = len(list(db.exec(count_stmt).all()))
     offset = (pm.page_num - 1) * pm.page_size
@@ -146,6 +162,57 @@ async def tagStats(db: SessionDep, current_user: CurrentUser):
     return resp_200(200, "查询成功", stats)
 
 
+@router.post("/tree")
+async def tagTree(db: SessionDep, current_user: CurrentUser):
+    """返回树形结构标签列表。"""
+    all_tags = db.exec(select(Tag).order_by(Tag.usage_count.desc())).all()
+    tag_map: dict[int, dict] = {}
+    roots: list[dict] = []
+
+    for t in all_tags:
+        tag_map[t.id] = {
+            "id": t.id,
+            "name": t.name,
+            "display_name": t.display_name,
+            "category": t.category,
+            "usage_count": t.usage_count,
+            "children": [],
+        }
+
+    for t in all_tags:
+        node = tag_map[t.id]
+        if t.parent_id and t.parent_id in tag_map:
+            tag_map[t.parent_id]["children"].append(node)
+        else:
+            roots.append(node)
+
+    return resp_200(200, "查询成功", roots)
+
+
+@router.post("/add")
+async def addTag(pm: AddTagM, db: SessionDep, current_user: CurrentUser):
+    """新增标签，可指定 parent_id 挂到父标签下。"""
+    existing = db.exec(select(Tag).where(Tag.name == pm.name)).first()
+    if existing:
+        return resp_400(400, "标签名已存在")
+
+    if pm.parent_id is not None:
+        parent = db.get(Tag, pm.parent_id)
+        if not parent:
+            return resp_400(400, "父标签不存在")
+
+    tag = Tag(
+        name=pm.name,
+        display_name=pm.display_name,
+        category=pm.category or "topic",
+        parent_id=pm.parent_id,
+    )
+    db.add(tag)
+    db.commit()
+    db.refresh(tag)
+    return resp_200(200, "添加成功", _tag_to_dict(tag))
+
+
 # ── 私有方法 ──
 
 
@@ -155,6 +222,7 @@ def _tag_to_dict(tag: Tag) -> dict:
         "name": tag.name,
         "display_name": tag.display_name,
         "category": tag.category,
+        "parent_id": tag.parent_id,
         "usage_count": tag.usage_count,
         "created_at": tag.created_at.isoformat() if tag.created_at else None,
     }

@@ -21,3 +21,8 @@ class LLMProvider(ABC):
     async def tag(self, title: str, content: str) -> dict[str, Any]:
         """对文章进行标签分类。"""
         raise NotImplementedError
+
+    @abstractmethod
+    async def interpret(self, raw_text: str) -> dict[str, Any]:
+        """解读洞见文本，返回结构化 JSON。"""
+        raise NotImplementedError

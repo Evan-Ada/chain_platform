@@ -68,11 +68,21 @@ class TagService:
         db: Session,
         *,
         categories: list[str] | None = None,
+        parent_id: int | None = None,
     ) -> list[str]:
-        """从 tag + tagsynonym 汇总去重后的匹配词（display_name、name、synonym）。"""
+        """从 tag + tagsynonym 汇总去重后的匹配词（display_name、name、synonym）。
+
+        Args:
+            parent_id: 若指定，则只返回该父标签的子标签；为 None 则返回所有标签。
+        """
         stmt = select(Tag)
         if categories:
             stmt = stmt.where(Tag.category.in_(categories))
+        if parent_id is not None:
+            stmt = stmt.where(Tag.parent_id == parent_id)
+        elif parent_id is None:
+            # 不加 parent_id 过滤时保持原有行为：查所有标签
+            pass
         tags = list(db.exec(stmt).all())
 
         terms: list[str] = []
@@ -125,12 +135,12 @@ class TagService:
         with Session(engine) as db:
             tag_list: list[str] = raw_tags.get("tags", [])
             if not tag_list:
-                return {**raw_tags, "tags": [], "tag_ids": []}
+                return {**raw_tags, "tags": [], "tag_ids": [], "parent_names": []}
 
             # Step 1: strip
             cleaned = [t.strip() for t in tag_list if t.strip()]
             if not cleaned:
-                return {**raw_tags, "tags": [], "tag_ids": []}
+                return {**raw_tags, "tags": [], "tag_ids": [], "parent_names": []}
 
             # 获取所有主 tag
             all_tags: list[Tag] = list(db.exec(select(Tag)).all())
@@ -211,10 +221,21 @@ class TagService:
 
             db.commit()
 
+        # 收集归一化后标签对应的 parent_name（用于前端树展示）
+        parent_names: list[str | None] = []
+        for tag_id in merged_ids:
+            tag = db.get(Tag, tag_id)
+            if tag and tag.parent_id:
+                parent = db.get(Tag, tag.parent_id)
+                parent_names.append(parent.name if parent else None)
+            else:
+                parent_names.append(None)
+
         return {
             **raw_tags,
             "tags": merged_names,
             "tag_ids": merged_ids,
+            "parent_names": parent_names,
         }
 
     @staticmethod

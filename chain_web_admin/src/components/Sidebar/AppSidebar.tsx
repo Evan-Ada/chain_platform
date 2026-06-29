@@ -4,8 +4,10 @@
   Database,
   Home,
   KeyRound,
+  Lightbulb,
   ListChecks,
   Settings,
+  Tag,
   Users,
 } from "lucide-react"
 
@@ -55,6 +57,16 @@ export function AppSidebar() {
           to="/items"
           icon={<ListChecks className="size-4" />}
           label="Items"
+        />
+        <SidebarLink
+          to="/insights"
+          icon={<Lightbulb className="size-4" />}
+          label="洞见"
+        />
+        <SidebarLink
+          to="/tags"
+          icon={<Tag className="size-4" />}
+          label="标签管理"
         />
         <SidebarLink
           to="/settings"

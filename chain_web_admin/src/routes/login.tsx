@@ -3,11 +3,13 @@ import {
   createFileRoute,
   Link as RouterLink,
   redirect,
+  useNavigate,
 } from "@tanstack/react-router"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 
 import { AuthLayout } from "@/components/Common/AuthLayout"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Form,
   FormControl,
@@ -17,13 +19,20 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { LoadingButton } from "@/components/ui/loading-button"
 import { PasswordInput } from "@/components/ui/password-input"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
+import {
+  clearRememberedCredentials,
+  getRememberedCredentials,
+  saveRememberedCredentials,
+} from "@/lib/rememberedCredentials"
 
 const formSchema = z.object({
   username: z.string().min(1, { message: "用户名不能为空" }),
   password: z.string().min(1, { message: "密码不能为空" }),
+  rememberMe: z.boolean(),
 })
 
 type FormData = z.infer<typeof formSchema>
@@ -37,27 +46,49 @@ export const Route = createFileRoute("/login")({
   },
 })
 
+function getLoginDefaultValues(): FormData {
+  const remembered = getRememberedCredentials()
+  return {
+    username: remembered?.username ?? "",
+    password: remembered?.password ?? "",
+    rememberMe: !!remembered,
+  }
+}
+
 function Login() {
   const { loginMutation } = useAuth()
+  const navigate = useNavigate()
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     mode: "onBlur",
     criteriaMode: "all",
-    defaultValues: { username: "", password: "" },
+    defaultValues: getLoginDefaultValues(),
   })
 
   const onSubmit = (data: FormData) => {
     if (loginMutation.isPending) return
     // FastAPI login expects OAuth2PasswordRequestForm (application/x-www-form-urlencoded),
     // which @hey-api/openapi-ts generates as BodyLoginLoginAccessToken.
-    loginMutation.mutate({
-      username: data.username,
-      password: data.password,
-      grant_type: "password",
-      scope: "",
-      client_id: "",
-      client_secret: "",
-    })
+    loginMutation.mutate(
+      {
+        username: data.username,
+        password: data.password,
+        grant_type: "password",
+        scope: "",
+        client_id: "",
+        client_secret: "",
+      },
+      {
+        onSuccess: () => {
+          if (data.rememberMe) {
+            saveRememberedCredentials(data.username, data.password)
+          } else {
+            clearRememberedCredentials()
+          }
+          navigate({ to: "/" })
+        },
+      },
+    )
   }
 
   return (
@@ -113,6 +144,34 @@ function Login() {
                     />
                   </FormControl>
                   <FormMessage className="text-xs" />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="rememberMe"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center gap-2">
+                    <FormControl>
+                      <Checkbox
+                        id="remember-me"
+                        data-testid="remember-me-checkbox"
+                        checked={field.value}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked === true)
+                        }
+                      />
+                    </FormControl>
+                    <Label
+                      htmlFor="remember-me"
+                      className="cursor-pointer text-sm font-normal"
+                      onClick={() => field.onChange(!field.value)}
+                    >
+                      记住账号密码
+                    </Label>
+                  </div>
                 </FormItem>
               )}
             />

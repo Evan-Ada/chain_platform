@@ -13,6 +13,7 @@ from app.api.routes import (
     Tag,
     ScheduledTask,
     Push,
+    Insight,
 )
 from app.core.config import settings
 
@@ -28,6 +29,7 @@ api_router.include_router(DataSourceConfig.router)
 api_router.include_router(Tag.router)
 api_router.include_router(ScheduledTask.router)
 api_router.include_router(Push.router)
+api_router.include_router(Insight.router)
 
 
 if settings.ENVIRONMENT == "local":

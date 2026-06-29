@@ -72,3 +72,33 @@ class AzureOpenAIProvider(LLMProvider):
             text = text.rsplit("```", 1)[0]
         text = text.strip()
         return json.loads(text)
+
+    async def interpret(self, raw_text: str) -> dict[str, Any]:
+        """解读洞见文本。"""
+        import re
+
+        system_prompt = """你是一个洞见解读助手。用户会输入一段文字（想法、灵感、反思等）。
+请分析这段文字，输出一段结构化 JSON（不含 markdown 格式）：
+{
+  "core_viewpoint": "核心观点（一句话）",
+  "emotional_tone": "情绪基调（如：平静、焦虑、乐观、反思等）",
+  "motivation": "可能的动机或背景（1-2句话）",
+  "actionable_suggestions": ["可执行的建议1", "可执行的建议2"],
+  "related_insights": ["相关的历史洞见描述（无则留空数组）"],
+  "tags": ["标签1", "标签2（如：tech, finance, life, career, health等）"],
+  "reflection_questions": ["自我追问问题1", "自我追问问题2"]
+}
+请直接输出 JSON，不要添加任何解释。"""
+
+        result_text = await self.chat(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": raw_text},
+            ],
+            temperature=0.7,
+            max_tokens=800,
+        )
+        match = re.search(r"\{.*\}", result_text, re.DOTALL)
+        if match:
+            result_text = match.group()
+        return json.loads(result_text)

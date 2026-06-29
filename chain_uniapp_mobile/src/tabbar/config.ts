@@ -37,10 +37,10 @@ export const nativeTabbarList: NativeTabBarItem[] = [
     text: '消息',
   },
   {
-    iconPath: 'static/tabbar/subscribe.png',
-    selectedIconPath: 'static/tabbar/subscribeHL.png',
-    pagePath: 'pages/subscriptions/list',
-    text: '订阅',
+    iconPath: 'static/tabbar/insight.png',
+    selectedIconPath: 'static/tabbar/insightHL.png',
+    pagePath: 'pages/insights/list',
+    text: '洞见',
   },
   {
     iconPath: 'static/tabbar/personal.png',
@@ -66,8 +66,8 @@ export const customTabbarList: CustomTabBarItem[] = [
     icon: 'i-carbon-notification',
   },
   {
-    text: '订阅',
-    pagePath: 'pages/subscriptions/list',
+    text: '洞见',
+    pagePath: 'pages/insights/list',
     iconType: 'unocss',
     icon: 'i-carbon-subscribe',
   },

@@ -23,14 +23,13 @@ app = FastAPI(
 )
 
 # Set all CORS enabled origins
-if settings.all_cors_origins:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.all_cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
@@ -53,6 +52,13 @@ async def _push_pending_job() -> None:
     await PushService.run_pending()
 
 
+async def _insight_pending_job() -> None:
+    """每分钟扫描 pending 洞见，执行 LLM 解读。"""
+    from app.services.insight_service import InsightService
+
+    await InsightService.interpret_pending(batch_size=5)
+
+
 @app.on_event("startup")
 async def _startup_scheduler() -> None:
     try:
@@ -64,6 +70,7 @@ async def _startup_scheduler() -> None:
     try:
         scheduler.add_job(_llm_batch_tag_job, CronTrigger(minute="*/1"), id="llm_batch_tag", replace_existing=True)
         scheduler.add_job(_push_pending_job, CronTrigger(minute="*/1"), id="push_pending", replace_existing=True)
+        scheduler.add_job(_insight_pending_job, CronTrigger(minute="*/1"), id="insight_pending", replace_existing=True)
     except Exception:
         pass
 
