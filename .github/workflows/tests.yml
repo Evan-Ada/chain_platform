@@ -1,0 +1,183 @@
+name: chain-platform tests
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 三端测试骨架（当前默认 workflow_dispatch，不自动触发）。
+#
+# 启用方式：
+#   1. 在 GitHub Actions 页面手动选 "Run workflow"
+#   2. 或把下方 `on:` 改回:
+#        on:
+#          pull_request:
+#          push:
+#            branches: [main, develop]
+#
+# 各 job 详细 TODO 见每个 job 内的注释。
+# 本地等价命令见 docs/development.md。
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+
+jobs:
+  # ── Backend FastAPI + pytest ────────────────────────────────────────────────
+  test-backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: chain
+          POSTGRES_PASSWORD: changethis
+          POSTGRES_DB: chain
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U chain"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      mongo:
+        image: mongo:7
+        ports: ["27017:27017"]
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+
+    defaults:
+      run:
+        working-directory: chain_fastapi_server
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Setup Python
+        run: uv python install 3.11
+
+      - name: Install deps
+        run: uv sync
+
+      # TODO: 真实跑测试前需要先迁移 schema
+      # - name: Alembic upgrade
+      #   env:
+      #     POSTGRES_SERVER: localhost
+      #     POSTGRES_PORT: 5432
+      #     POSTGRES_DB: chain
+      #     POSTGRES_USER: chain
+      #     POSTGRES_PASSWORD: changethis
+      #   run: uv run alembic upgrade head
+
+      - name: Run pytest
+        env:
+          POSTGRES_SERVER: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: chain
+          POSTGRES_USER: chain
+          POSTGRES_PASSWORD: changethis
+          MONGO_URL: mongodb://localhost:27017/chain
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: ci-secret-key-do-not-use-in-prod
+          FIRST_SUPERUSER: admin@example.com
+          FIRST_SUPERUSER_PASSWORD: changethis
+          ENVIRONMENT: local
+          PROJECT_NAME: chain
+        run: uv run pytest -v
+
+  # ── Web React: lint + type-check + Playwright E2E ───────────────────────────
+  test-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chain_web_admin
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: chain_platform/package-lock.json
+
+      - name: Install workspace deps
+        working-directory: .
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+        continue-on-error: true # TODO: 修完所有类型问题后改为强制
+
+      # TODO: 需要后端服务才能跑；建议改 docker-compose 起后端再跑 e2e
+      # - name: Install Playwright
+      #   run: npx playwright install --with-deps chromium
+      # - name: Run E2E
+      #   run: npm run test:e2e
+
+  # ── Mobile UniApp: type-check 占位 ──────────────────────────────────────────
+  test-mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chain_uniapp_mobile
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: chain_platform/package-lock.json
+
+      - name: Install workspace deps
+        working-directory: .
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+        continue-on-error: true # TODO: 修完所有类型问题后改为强制
+
+  # ── OpenAPI 客户端漂移检查（保证 packages/shared-api-client 与后端契约一致）─
+  openapi-drift:
+    runs-on: ubuntu-latest
+    needs: test-backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: astral-sh/setup-uv@v3
+      - run: uv python install 3.11
+
+      # TODO: 启动后端 → sync-openapi → 验证 git diff
+      # - name: Start backend in background
+      #   working-directory: chain_platform/chain_fastapi_server
+      #   run: |
+      #     uv sync
+      #     nohup uv run uvicorn app.main:app --port 8000 &
+      #     sleep 8
+      # - name: Sync OpenAPI client
+      #   run: node meridian_workspace/scripts/sync-openapi.mjs
+      # - name: Verify no drift
+      #   run: |
+      #     if [ -n "$(git status --porcelain chain_platform/packages/shared-api-client/)" ]; then
+      #       echo "::error::OpenAPI client drifted; 请本地跑 sync-openapi.mjs 并提交差异"
+      #       git diff chain_platform/packages/shared-api-client/
+      #       exit 1
+      #     fi
+      - run: echo "占位 job；TODO 启用上方步骤"

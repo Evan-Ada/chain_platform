@@ -1,0 +1,135 @@
+﻿import { zodResolver } from "@hookform/resolvers/zod"
+import {
+  createFileRoute,
+  Link as RouterLink,
+  redirect,
+} from "@tanstack/react-router"
+import { useForm } from "react-hook-form"
+import { z } from "zod"
+
+import { AuthLayout } from "@/components/Common/AuthLayout"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { LoadingButton } from "@/components/ui/loading-button"
+import { PasswordInput } from "@/components/ui/password-input"
+import useAuth, { isLoggedIn } from "@/hooks/useAuth"
+
+const formSchema = z.object({
+  username: z.string().min(1, { message: "用户名不能为空" }),
+  password: z.string().min(1, { message: "密码不能为空" }),
+})
+
+type FormData = z.infer<typeof formSchema>
+
+export const Route = createFileRoute("/login")({
+  component: Login,
+  beforeLoad: async () => {
+    if (isLoggedIn()) {
+      throw redirect({ to: "/" })
+    }
+  },
+})
+
+function Login() {
+  const { loginMutation } = useAuth()
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    mode: "onBlur",
+    criteriaMode: "all",
+    defaultValues: { username: "", password: "" },
+  })
+
+  const onSubmit = (data: FormData) => {
+    if (loginMutation.isPending) return
+    // FastAPI login expects OAuth2PasswordRequestForm (application/x-www-form-urlencoded),
+    // which @hey-api/openapi-ts generates as BodyLoginLoginAccessToken.
+    loginMutation.mutate({
+      username: data.username,
+      password: data.password,
+      grant_type: "password",
+      scope: "",
+      client_id: "",
+      client_secret: "",
+    })
+  }
+
+  return (
+    <AuthLayout>
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="flex flex-col gap-6"
+        >
+          <div className="flex flex-col items-center gap-2 text-center">
+            <h1 className="text-2xl font-bold">登录账号</h1>
+          </div>
+
+          <div className="grid gap-4">
+            <FormField
+              control={form.control}
+              name="username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>用户名</FormLabel>
+                  <FormControl>
+                    <Input
+                      data-testid="email-input"
+                      placeholder="请输入用户名"
+                      type="text"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage className="text-xs" />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>密码</FormLabel>
+                    <RouterLink
+                      to="/recover-password"
+                      className="text-xs text-muted-foreground hover:underline"
+                    >
+                      忘记密码？
+                    </RouterLink>
+                  </div>
+                  <FormControl>
+                    <PasswordInput
+                      data-testid="password-input"
+                      placeholder="请输入密码"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage className="text-xs" />
+                </FormItem>
+              )}
+            />
+
+            <LoadingButton type="submit" loading={loginMutation.isPending}>
+              登录
+            </LoadingButton>
+          </div>
+
+          <div className="text-center text-sm">
+            还没有账号？{" "}
+            <RouterLink to="/signup" className="underline underline-offset-4">
+              注册
+            </RouterLink>
+          </div>
+        </form>
+      </Form>
+    </AuthLayout>
+  )
+}
