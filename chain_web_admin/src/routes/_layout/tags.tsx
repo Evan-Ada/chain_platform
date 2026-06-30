@@ -14,6 +14,8 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { LoadingButton } from "@/components/ui/loading-button"
+import { tagTagStats } from "@chain/api-client"
+import { apiFetch } from "@/lib/apiClient"
 
 export const Route = createFileRoute("/_layout/tags")({
   component: TagsPage,
@@ -44,21 +46,13 @@ export default function TagsPage() {
 
   const { data: statsData, isLoading } = useQuery<TagItem[]>({
     queryKey: ["tag-stats"],
-    queryFn: () =>
-      unwrapApiData<TagItem[]>(
-        fetch("/api/v1/Tag/stats", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-        }).then(r => r.json())
-      ),
+    queryFn: () => unwrapApiData<TagItem[]>(tagTagStats({})),
   })
 
   const addMutation = useMutation({
     mutationFn: async (data: AddTagForm) => {
-      const res = await fetch("/api/v1/Tag/add", {
+      return apiFetch("/api/v1/Tag/add", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: data.name,
           display_name: data.display_name,
@@ -66,7 +60,6 @@ export default function TagsPage() {
           parent_id: parentId,
         }),
       })
-      return res.json()
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tag-stats"] })

@@ -60,9 +60,35 @@ export function extractApiData<T>(body: unknown): T {
   return body as T
 }
 
+/**
+ * 清理本地认证 token 并跳转到登录页。
+ * 用于 401/403 时自动踢用户回登录。
+ */
+function handleAuthError() {
+  localStorage.removeItem("access_token")
+  if (
+    typeof window !== "undefined" &&
+    window.location.pathname !== "/login"
+  ) {
+    window.location.href = "/login"
+  }
+}
+
 export async function unwrapApiData<TData>(
   promise: Promise<FieldResult<unknown>>,
 ): Promise<TData> {
-  const body = await unwrapResult<unknown>(promise)
+  const result = await promise
+
+  // 检查 HTTP 状态码是否表示认证失败
+  if (result.response && [401, 403].includes(result.response.status)) {
+    handleAuthError()
+    throw toApiError(result.error, result.response)
+  }
+
+  if (result.error !== undefined) {
+    throw toApiError(result.error, result.response)
+  }
+
+  const body = result.data
   return extractApiData<TData>(body)
 }

@@ -14,6 +14,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { unwrapApiData } from "@/lib/unwrap"
+import { apiFetch } from "@/lib/apiClient"
 
 export const Route = createFileRoute("/_layout/insights")({
   component: InsightsPage,
@@ -52,21 +53,19 @@ export default function InsightsPage() {
     queryKey: ["insights", selectedTag],
     queryFn: () =>
       unwrapApiData(
-        fetch("/api/v1/Insight/list", {
+        apiFetch("/api/v1/Insight/list", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tag: selectedTag, page_num: 1, page_size: 50 }),
-        }).then(r => r.json())
+        })
       ),
   })
 
   const addMutation = useMutation({
     mutationFn: (data: AddInsightForm) => {
-      return fetch("/api/v1/Insight/add", {
+      return apiFetch("/api/v1/Insight/add", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
-      }).then(r => r.json())
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["insights"] })
@@ -76,11 +75,10 @@ export default function InsightsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) =>
-      fetch("/api/v1/Insight/delete", {
+      apiFetch("/api/v1/Insight/delete", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
-      }).then(r => r.json()),
+      }),
     onSuccess: () => refetch(),
   })
 
@@ -177,9 +175,8 @@ function InsightCard({ insight, onDelete, onRefresh }: {
   const handleFollowUp = async () => {
     setFollowUpLoading(true)
     try {
-      await fetch("/api/v1/Insight/followUp", {
+      await apiFetch("/api/v1/Insight/followUp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ parent_id: insight.id, raw_text: followUpText }),
       })
       setFollowUpOpen(false)

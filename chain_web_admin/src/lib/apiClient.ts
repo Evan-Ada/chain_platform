@@ -46,3 +46,57 @@ client.interceptors.error.use((error: unknown) => {
   }
   return error
 })
+
+/**
+ * 处理 API 响应：检查 401/403 并跳转登录页。
+ * 用于原生 fetch 包装，确保和 SDK client 一样的错误处理逻辑。
+ */
+export async function handleApiResponse<T>(response: Response): Promise<T> {
+  if ([401, 403].includes(response.status)) {
+    localStorage.removeItem("access_token")
+    if (
+      typeof window !== "undefined" &&
+      window.location.pathname !== "/login"
+    ) {
+      window.location.href = "/login"
+    }
+    throw new Error(`HTTP ${response.status} ${response.statusText}`)
+  }
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    const message = body.detail || `HTTP ${response.status} ${response.statusText}`
+    throw new Error(message)
+  }
+  return response.json()
+}
+
+/**
+ * 封装的 fetch，确保自动附加 Authorization header 并处理 401/403。
+ */
+export async function apiFetch<T>(
+  url: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const token = localStorage.getItem("access_token")
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers,
+  }
+
+  const fullUrl = url.startsWith("http") ? url : `${apiBaseUrl}${url}`
+  const response = await fetch(fullUrl, { ...options, headers })
+
+  if ([401, 403].includes(response.status)) {
+    localStorage.removeItem("access_token")
+    if (
+      typeof window !== "undefined" &&
+      window.location.pathname !== "/login"
+    ) {
+      window.location.href = "/login"
+    }
+    throw new Error(`HTTP ${response.status} ${response.statusText}`)
+  }
+
+  return handleApiResponse<T>(response)
+}
